@@ -1,4 +1,3 @@
-const port = 4000;
 const express = require("express");
 const app = express();
 const mongoose = require("mongoose");
@@ -6,14 +5,13 @@ const jwt = require("jsonwebtoken");
 const multer = require("multer");
 const path = require("path");
 const cors = require("cors");
-const { error } = require("console");
+
 app.use(express.json());
 app.use(cors()); //using this our react project will connect on the 4000 port
+require("dotenv").config();
 
 //Database connection with mongodb
-mongoose.connect(
-  "mongodb+srv://FullstackEcommerce:FullstackEcommerce@cluster0.yssj3kq.mongodb.net/e-commerce"
-);
+mongoose.connect(process.env.MONGODB_URL);
 
 //api endpoint creation
 app.get("/", (req, res) => {
@@ -45,10 +43,12 @@ app.post("/upload", upload.single("product"), (req, res) => {
 
 //schema for creating products and adding it in the database
 const Product = mongoose.model("Product", {
-  id: {
-    type: Number,
-    required: true,
-  },
+  // id: {
+  //   type: Number,
+  //   // type: mongoose.Schema.Types.ObjectId,
+  //   required: true,
+  //   // default: () => new mongoose.Types.ObjectId(),
+  // },
   name: {
     type: String,
     required: true,
@@ -80,42 +80,47 @@ const Product = mongoose.model("Product", {
 });
 
 //API for adding a new product in our database
+
 app.post("/addproduct", async (req, res) => {
-  let products = await Product.find({});
-  let id;
-  if (products.length > 0) {
-    let last_product_array = products.slice(-1);
-    let last_product = last_product_array[0];
-    id = last_product.id + 1;
-  } else {
-    id: 1;
+  try {
+    const product = new Product({
+      name: req.body.name,
+      image: req.body.image,
+      category: req.body.category,
+      new_price: req.body.new_price,
+      old_price: req.body.old_price,
+    });
+    await product.save();
+    console.log("Data is saved");
+    res.json({
+      success: true,
+      product: product,
+    });
+  } catch (error) {
+    console.error("Error saving product:", error);
+    res.status(500).json({
+      success: false,
+      error: "An error occurred while saving the product.",
+    });
   }
-  const product = new Product({
-    id: id,
-    name: req.body.name,
-    image: req.body.image,
-    category: req.body.category,
-    new_price: req.body.new_price,
-    old_price: req.body.old_price,
-  });
-  console.log(product);
-  await product.save(); //data will be saved in database
-  console.log("Data is saved");
-  res.json({
-    success: true,
-    name: req.body.name,
-  });
 });
 
 //Product is our schema here
 //Creating api to delete products
 app.post("/removeproduct", async (req, res) => {
-  await Product.findOneAndDelete({ id: req.body.id });
-  console.log("Product is removed");
-  res.json({
-    success: true,
-    name: req.body.name,
-  });
+  try {
+    await Product.findByIdAndDelete(req.body.id);
+    console.log("Product is removed");
+    res.json({
+      success: true,
+    });
+  } catch (error) {
+    console.error("Error removing product:", error);
+    res.status(500).json({
+      success: false,
+      error: "An error occurred while removing the product.",
+    });
+  }
 });
 
 //Creating API for getting all products
@@ -155,21 +160,21 @@ app.post("/signup", async (req, res) => {
       errors: "Existing user found with same email ",
     });
   }
-  let cart = {};
-  for (let i = 0; i < 300; i++) {
-    cart[i] = 0;
-  }
+  // let cart = {};
+  // for (let i = 0; i < 300; i++) {
+  //   cart[i] = 0;
+  //}
   const user = new Users({
     name: req.body.username,
     email: req.body.email,
     password: req.body.password,
-    cartData: cart,
+    //cartData: cart,
   });
 
   await user.save();
   const data = {
     user: {
-      id: user.id,
+      id: user._id,
     },
   };
   const token = jwt.sign(data, "secret_ecom");
@@ -184,7 +189,7 @@ app.post("/login", async (req, res) => {
     if (passCompare) {
       const data = {
         user: {
-          id: user.id,
+          id: user._id,
         },
       };
       const token = jwt.sign(data, "secret_ecom");
@@ -207,7 +212,7 @@ app.post("/login", async (req, res) => {
 app.get("/newcollection", async (req, res) => {
   let products = await Product.find({});
   let newcollection = products.slice(1).slice(-8);
-  console.log("New collcection fetched");
+  console.log("New collecction fetched");
   res.send(newcollection);
 });
 //creating endpoint for popular in women section
@@ -237,46 +242,79 @@ const fetchUser = async (req, res, next) => {
 };
 
 //creating end point for adding products in cartdata
+//creating end point for adding products in cartdata
 app.post("/addtocart", fetchUser, async (req, res) => {
-  console.log("added", req.body.itemId);
-  //console.log(req.body, req.user);
+  console.log("Added", req.body.itemId);
   let userData = await Users.findOne({ _id: req.user.id });
+  if (!userData) {
+    return res.status(404).json({ success: false, message: "User not found" });
+  }
+
+  if (!userData.cartData) {
+    userData.cartData = {};
+  }
+
+  if (!userData.cartData[req.body.itemId]) {
+    userData.cartData[req.body.itemId] = 0;
+  }
   userData.cartData[req.body.itemId] += 1;
   await Users.findOneAndUpdate(
     {
       _id: req.user.id,
     },
-
-    { cartData: userData.cartData }
+    {
+      cartData: userData.cartData,
+    }
   );
-  res.send("Added");
+  res.json({ success: true, message: "Added" });
 });
 
-//creating endpoint to remocve product from cartData
-app.post("/removefromcart", async (req, res) => {
-  console.log("removed", req.body.itemId);
+// Endpoint to remove item from cart
+app.post("/removefromcart", fetchUser, async (req, res) => {
+  console.log("Removed", req.body.itemId);
   let userData = await Users.findOne({ _id: req.user.id });
-
+  console.log(userData);
   if (userData.cartData[req.body.itemId] > 0)
     userData.cartData[req.body.itemId] -= 1;
   await Users.findOneAndUpdate(
     {
       _id: req.user.id,
     },
-
-    { cartData: userData.cartData }
+    {
+      cartData: userData.cartData,
+    }
   );
-  res.send("Removed");
+  res.json({ success: true, message: "Removd" });
 });
 
-//creating endpoint to get cartdata
+// Using GET method for fetching cart data
 app.post("/getcart", fetchUser, async (req, res) => {
-  console.log("Get Cart");
-  let userData = await Users.findOne({
-    _id: req.user.id,
-  });
-  res.json(userData.cartData);
+  try {
+    console.log("Get Cart");
+    let userData = await Users.findOne({ _id: req.user.id });
+    res.json(userData.cartData);
+  } catch (error) {
+    console.error("Error fetching cart data:", error);
+    res.status(500).json({
+      success: false,
+      message: "Failed to fetch cart data. Please try again later.",
+    });
+  }
 });
+
+const port = process.env.PORT || 4000;
+app.use(express.static("client/build"));
+app.get("*", (req, res) => {
+  res.sendFile(
+    path.resolve(__dirname + "/client/build/index.html"),
+    function (err) {
+      if (err) {
+        console.log(err);
+      }
+    }
+  );
+});
+
 app.listen(port, (error) => {
   if (!error) {
     console.log("Server is running on Port " + port);
