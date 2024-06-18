@@ -7,16 +7,23 @@ const path = require("path");
 const cors = require("cors");
 
 app.use(express.json());
-app.use(cors()); //using this our react project will connect on the 4000 port
+app.use(
+  cors({
+    origin: "http://localhost:3000", // Assuming your frontend runs on port 3000
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true,
+  })
+);
+//app.use(cors()); //using this our react project will connect on the 4000 port
 require("dotenv").config();
 
 //Database connection with mongodb
 mongoose.connect(process.env.MONGODB_URL);
 
 //api endpoint creation
-app.get("/", (req, res) => {
-  res.send("Express app is running");
-});
+// app.get("/", (req, res) => {
+//   res.send("Express app is running");
+// });
 
 //Image storage engine
 const storage = multer.diskStorage({
@@ -302,7 +309,7 @@ app.post("/getcart", fetchUser, async (req, res) => {
   }
 });
 
-const port = process.env.PORT || 4000;
+const port = process.env.PORT || 5000;
 app.use(express.static("client/build"));
 app.get("*", (req, res) => {
   res.sendFile(
