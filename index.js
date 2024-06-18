@@ -8,8 +8,28 @@ const cors = require("cors");
 
 app.use(express.json());
 
-app.use(cors()); //using this our react project will connect on the 4000 port
+// app.use(cors()); //using this our react project will connect on the 4000 port
 require("dotenv").config();
+// CORS configuration
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://the-shopaholic.onrender.com",
+];
+app.use(
+  cors({
+    origin: function (origin, callback) {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.indexOf(origin) === -1) {
+        const msg =
+          "The CORS policy for this site does not allow access from the specified Origin.";
+        return callback(new Error(msg), false);
+      }
+      return callback(null, true);
+    },
+    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
+    credentials: true,
+  })
+);
 
 //Database connection with mongodb
 mongoose.connect(process.env.MONGODB_URL);
