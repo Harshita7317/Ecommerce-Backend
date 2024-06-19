@@ -12,12 +12,11 @@ app.use(express.json());
 require("dotenv").config();
 // CORS configuration
 // CORS Configuration to allow access from any origin
+
+
+
 app.use(
-  cors({
-    origin: true, // Allows access from any origin
-    methods: "GET,HEAD,PUT,PATCH,POST,DELETE",
-    credentials: true,
-  })
+  cors()
 );
 
 //Database connection with mongodb
