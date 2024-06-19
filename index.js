@@ -13,11 +13,7 @@ require("dotenv").config();
 // CORS configuration
 // CORS Configuration to allow access from any origin
 
-
-
-app.use(
-  cors()
-);
+app.use(cors());
 
 //Database connection with mongodb
 mongoose.connect(process.env.MONGODB_URL);
@@ -26,7 +22,7 @@ mongoose.connect(process.env.MONGODB_URL);
 const storage = multer.diskStorage({
   destination: "./upload/images",
   filename: (req, file, cb) => {
-    return cb(
+    cb(
       null,
       `${file.fieldname}_${Date.now()}${path.extname(file.originalname)}`
     );
@@ -35,16 +31,17 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage: storage });
 
-//creating upload endpoint for uploading images in the upload images folder
+// Creating upload endpoint for uploading images
 app.use("/images", express.static("upload/images"));
 
+// Endpoint for uploading a file
 app.post("/upload", upload.single("product"), (req, res) => {
+  const imageUrl = `https://ecommerce-backend-c89w.onrender.com/images/${req.file.filename}`;
   res.json({
-    success: 1,
-    image_url: `http://localhost:${port}/images/${req.file.filename}`,
+    success: true,
+    image_url: imageUrl,
   });
 });
-
 //schema for creating products and adding it in the database
 const Product = mongoose.model("Product", {
   // id: {
